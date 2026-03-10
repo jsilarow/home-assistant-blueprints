@@ -1,0 +1,132 @@
+blueprint:
+  name: Motion-activated Light with Sun Conditions
+  description: |
+    Advanced motion-activated light control with optional sunset/sunrise conditions.
+    
+    Features:
+    • Configurable time offsets (±60min)
+    • Restart mode (new motion resets timer)
+    • Graphical YAML editor compatible
+
+  domain: automation
+  source_url: https://github.com/jsilarow/home-assistant-blueprints
+  input:
+    motion_entity:
+      name: Motion Sensor
+      description: Motion or occupancy sensor
+      selector:
+        entity:
+          filter:
+            - device_class: motion
+              domain: binary_sensor
+            - device_class: occupancy
+              domain: binary_sensor
+    light_target:
+      name: Light(s)
+      description: Light or group of lights to control
+      selector:
+        target:
+          entity:
+            domain: light
+    no_motion_wait:
+      name: No Motion Wait Time
+      description: Seconds to keep light on after last motion detected
+      default: 120
+      selector:
+        number:
+          min: 0
+          max: 3600
+          step: 1
+          unit_of_measurement: seconds
+    enable_sunset_condition:
+      name: Enable Sunset Condition
+      description: Only activate after sunset (with configurable offset)
+      default: false
+      selector:
+        boolean: {}
+    sunset_offset:
+      name: Sunset Offset
+      description: Time offset from sunset in minutes (negative = before sunset)
+      default: 0
+      selector:
+        number:
+          min: -60
+          max: 60
+          step: 1
+          unit_of_measurement: minutes
+    enable_sunrise_condition:
+      name: Enable Sunrise Condition  
+      description: Only activate before sunrise (with configurable offset)
+      default: false
+      selector:
+        boolean: {}
+    sunrise_offset:
+      name: Sunrise Offset
+      description: Time offset from sunrise in minutes (negative = before sunrise)
+      default: 0
+      selector:
+        number:
+          min: -60
+          max: 60
+          step: 1
+          unit_of_measurement: minutes
+
+# Restart mode: new motion resets the timer
+mode: restart
+max_exceeded: silent
+
+trigger:
+  # Trigger on motion detected
+  - trigger: state
+    entity_id: !input motion_entity
+    from: "off"
+    to: "on"
+
+condition:
+  - condition: or
+    conditions:
+      # No sun conditions = always true
+      - condition: template
+        value_template: >-
+          {{ not is_state('input_boolean.enable_sunset_condition', 'on') and 
+             not is_state('input_boolean.enable_sunrise_condition', 'on') }}
+      # After sunset condition
+      - condition: and
+        conditions:
+          - condition: template
+            value_template: "{{ is_state('input_boolean.enable_sunset_condition', 'on') }}"
+          - condition: sun
+            after: sunset
+            after_offset: !input sunset_offset
+      # Before sunrise condition  
+      - condition: and
+        conditions:
+          - condition: template
+            value_template: "{{ is_state('input_boolean.enable_sunrise_condition', 'on') }}"
+          - condition: sun
+            before: sunrise
+            before_offset: !input sunrise_offset
+
+action:
+  # Turn on light immediately
+  - alias: Turn on light
+    service: light.turn_on
+    target: !input light_target
+    
+  # Wait for motion to stop
+  - alias: Wait for no motion
+    wait_for_trigger:
+      - trigger: state
+        entity_id: !input motion_entity
+        from: "on"
+        to: "off"
+    
+  # Additional wait time after no motion
+  - alias: Wait configured time
+    delay: 
+      seconds: !input no_motion_wait
+      
+  # Turn off light
+  - alias: Turn off light
+    service: light.turn_off
+    target: !input light_target
