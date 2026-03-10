@@ -4,7 +4,7 @@ blueprint:
     Advanced motion-activated light control with optional sunset/sunrise conditions.
 
     Features:
-    • Configurable time offsets (±60min)
+    • Configurable time offsets (±60min) using templates
     • Restart mode (new motion resets timer)
     • Graphical YAML editor compatible
   domain: automation
@@ -43,14 +43,14 @@ blueprint:
 
     enable_sunset_condition:
       name: Enable Sunset Condition
-      description: Only activate after sunset (with configurable offset)
+      description: Only activate after sunset (with configurable offset, minutes)
       default: false
       selector:
         boolean: {}
 
     sunset_offset:
-      name: Sunset Offset
-      description: Time offset from sunset in minutes (negative = before sunset)
+      name: Sunset Offset (minutes)
+      description: Positive = after sunset, negative = before sunset
       default: 0
       selector:
         number:
@@ -61,14 +61,14 @@ blueprint:
 
     enable_sunrise_condition:
       name: Enable Sunrise Condition
-      description: Only activate before sunrise (with configurable offset)
+      description: Only activate before sunrise (with configurable offset, minutes)
       default: false
       selector:
         boolean: {}
 
     sunrise_offset:
-      name: Sunrise Offset
-      description: Time offset from sunrise in minutes (negative = before sunrise)
+      name: Sunrise Offset (minutes)
+      description: Positive = after sunrise, negative = before sunrise
       default: 0
       selector:
         number:
@@ -77,7 +77,6 @@ blueprint:
           step: 1
           unit_of_measurement: minutes
 
-# Restart mode: new motion resets the timer
 mode: restart
 max_exceeded: silent
 
@@ -85,62 +84,53 @@ max_exceeded: silent
 variables:
   var_enable_sunset: !input enable_sunset_condition
   var_enable_sunrise: !input enable_sunrise_condition
-  var_sunset_offset_min: !input sunset_offset
-  var_sunrise_offset_min: !input sunrise_offset
+  var_sunset_offset: !input sunset_offset
+  var_sunrise_offset: !input sunrise_offset
 
 trigger:
-  # Trigger on motion detected
   - trigger: state
     entity_id: !input motion_entity
     from: "off"
     to: "on"
 
 condition:
-  # If both sun conditions are disabled -> always allow
   - condition: or
     conditions:
+      # 1) No sun conditions enabled -> always allow
       - condition: template
         alias: "No sun conditions enabled"
         value_template: >
           {{ (var_enable_sunset is not true) and (var_enable_sunrise is not true) }}
 
-      # After sunset with offset
-      - condition: and
+      # 2) After (sunset + offset)
+      - condition: template
         alias: "After sunset with offset"
-        conditions:
-          - condition: template
-            value_template: "{{ var_enable_sunset is true }}"
-          - condition: sun
-            after: sunset
-            after_offset: >
-              {{ (var_sunset_offset_min | int(0)) | abs | 
-                 multiply(60) | 
-                 iif(var_sunset_offset_min | int(0) < 0, 
-                     '-' ~ (var_sunset_offset_min | int(0) | abs | multiply(60) | string), 
-                     (var_sunset_offset_min | int(0) | multiply(60) | string)) }}
+        value_template: >
+          {% if var_enable_sunset %}
+            {% set sunset_dt = as_local(as_datetime(state_attr('sun.sun', 'next_setting'))) %}
+            {% set target_dt = sunset_dt + timedelta(minutes=var_sunset_offset | int(0)) %}
+            {{ now() >= target_dt }}
+          {% else %}
+            false
+          {% endif %}
 
-      # Before sunrise with offset
-      - condition: and
+      # 3) Before (sunrise + offset)
+      - condition: template
         alias: "Before sunrise with offset"
-        conditions:
-          - condition: template
-            value_template: "{{ var_enable_sunrise is true }}"
-          - condition: sun
-            before: sunrise
-            before_offset: >
-              {{ (var_sunrise_offset_min | int(0)) | abs | 
-                 multiply(60) | 
-                 iif(var_sunrise_offset_min | int(0) < 0, 
-                     '-' ~ (var_sunrise_offset_min | int(0) | abs | multiply(60) | string), 
-                     (var_sunrise_offset_min | int(0) | multiply(60) | string)) }}
+        value_template: >
+          {% if var_enable_sunrise %}
+            {% set sunrise_dt = as_local(as_datetime(state_attr('sun.sun', 'next_rising'))) %}
+            {% set target_dt = sunrise_dt + timedelta(minutes=var_sunrise_offset | int(0)) %}
+            {{ now() <= target_dt }}
+          {% else %}
+            false
+          {% endif %}
 
 action:
-  # Turn on light immediately
   - alias: Turn on light
     service: light.turn_on
     target: !input light_target
 
-  # Wait for motion to stop
   - alias: Wait for no motion
     wait_for_trigger:
       - trigger: state
@@ -148,12 +138,10 @@ action:
         from: "on"
         to: "off"
 
-  # Additional wait time after no motion
   - alias: Wait configured time
     delay:
       seconds: !input no_motion_wait
 
-  # Turn off light
   - alias: Turn off light
     service: light.turn_off
     target: !input light_target
