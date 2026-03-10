@@ -12,6 +12,6 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Validate Blueprints
-      uses: home-assistant/actions/blueprint-lint@v1.0
+      uses: home-assistant/actions/validate-blueprint@main
       with:
         path: blueprints/
