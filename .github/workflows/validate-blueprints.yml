@@ -1,17 +1,15 @@
+# .github/workflows/validate-blueprints.yml
 name: Validate Blueprints
 on: 
   push:
     paths: ['blueprints/**']
   pull_request:
     paths: ['blueprints/**']
-
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Validate Blueprints
-      uses: home-assistant/actions/validate-blueprint@main
+    - uses: actions/checkout@v4      
+    - uses: home-assistant/blueprint-validate-action@v1  
       with:
         path: blueprints/
