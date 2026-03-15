@@ -1,13 +1,22 @@
 blueprint:
-  name: Motion-activated Light with Sun Conditions
+  name: Motion-activated Light with Sun and Ambient Light
   description: |
-    Motion-activated light control with optional sunset/sunrise conditions.
+    Motion-activated light control with optional sunset/sunrise conditions
+    and optional ambient light sensor (e.g. IKEA VALLHORN).
 
     Behavior:
-    - If both sun options are disabled -> always active
-    - If only sunset is enabled -> active after sunset (with offset)
-    - If only sunrise is enabled -> active before sunrise (with offset)
-    - If both are enabled -> active when any sun condition is met
+    - Motion sensor ALWAYS controls the light, this is the main trigger.
+    - Sun options:
+      * If both sun options are disabled -> automation is always active
+      * If only sunset is enabled -> active after sunset (with offset)
+      * If only sunrise is enabled -> active before sunrise (with offset)
+      * If both are enabled -> active when any sun condition is met
+    - Ambient light option (lux sensor):
+      * Only used when the sun is ABOVE horizon (daytime)
+      * If enabled and lux is BELOW threshold -> automation is allowed
+        to run even if sun conditions are not met (treat room as dark)
+      * After sunset (sun below horizon) ambient light sensor is IGNORED
+        and motion + sun conditions are enough to activate the light.
   domain: automation
 
   input:
@@ -73,12 +82,73 @@ blueprint:
         text:
           multiline: false
 
+    # -------- OPTIONAL AMBIENT LIGHT OPTIONS --------
+
+    enable_ambient_light:
+      name: Enable Ambient Light Condition
+      description: >
+        When enabled, the automation will also treat the room as "dark"
+        during daytime (sun above horizon) if the ambient light sensor
+        is below the configured threshold. After sunset this sensor
+        is ignored and motion alone (with sun conditions) is enough.
+      default: false
+      selector:
+        boolean: {}
+
+    ambient_light_sensor:
+      name: Ambient Light Sensor (optional)
+      description: >
+        Illuminance/brightness sensor, e.g. IKEA VALLHORN. Leave empty if you
+        only want to use sun conditions.
+      default: ""
+      selector:
+        entity:
+          domain:
+            - sensor
+
+    ambient_light_threshold:
+      name: Ambient Light Threshold (lux)
+      description: >
+        If the sensor value is BELOW this threshold and ambient light
+        is enabled while the sun is above the horizon, the automation
+        is allowed to run even when sun conditions are not met.
+      default: 20
+      selector:
+        number:
+          min: 1
+          max: 1000
+          step: 1
+          unit_of_measurement: lx
+
 mode: restart
 max_exceeded: silent
 
 variables:
   var_enable_sunset: !input enable_sunset_condition
   var_enable_sunrise: !input enable_sunrise_condition
+  var_enable_ambient: !input enable_ambient_light
+  var_ambient_sensor: !input ambient_light_sensor
+  var_ambient_threshold: !input ambient_light_threshold
+
+  var_sun_above: "{{ is_state('sun.sun', 'above_horizon') }}"
+  var_sun_below: "{{ is_state('sun.sun', 'below_horizon') }}"
+
+  var_current_lux: >
+    {% if var_enable_ambient
+          and var_ambient_sensor != ""
+          and states(var_ambient_sensor) not in ["unknown","unavailable",""] %}
+      {{ states(var_ambient_sensor) | float(0) }}
+    {% else %}
+      -1
+    {% endif %}
+
+  # Ambient "dark" is considered ONLY when sun is above horizon
+  var_is_dark_by_ambient: >
+    {{ var_enable_ambient
+       and var_ambient_sensor != ""
+       and var_sun_above
+       and var_current_lux >= 0
+       and var_current_lux < var_ambient_threshold }}
 
 trigger:
   - trigger: state
@@ -114,6 +184,12 @@ condition:
           - condition: sun
             before: sunrise
             before_offset: !input sunrise_offset
+
+      # 4) OPTIONAL: Dark in the room according to ambient light sensor (daytime only)
+      - condition: template
+        alias: "Room is dark by ambient light sensor (sun above horizon)"
+        value_template: >
+          {{ var_is_dark_by_ambient }}
 
 action:
   - alias: "Turn on target light(s)"
