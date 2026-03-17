@@ -26,110 +26,110 @@ blueprint:
     Recommended threshold: 30–60 lx for "turn on when it feels dark".
   domain: automation
   source_url: https://github.com/jsilarow/home-assistant-blueprints/blob/main/blueprints/motion_light_sun/motion_light_sun.yaml
-  author: Jan Silarow
+  author: Jakub Silarow
 
-input:
-  motion_entity:
-    name: Motion Sensor
-    description: Motion or occupancy sensor used to detect presence
-    selector:
-      entity:
-        filter:
-          - domain: binary_sensor
-            device_class: motion
-          - domain: binary_sensor
-            device_class: occupancy
-
-  light_target:
-    name: Target Light(s)
-    description: Light or group of lights to control
-    selector:
-      target:
+  input:
+    motion_entity:
+      name: Motion Sensor
+      description: Motion or occupancy sensor used to detect presence
+      selector:
         entity:
-          domain: light
+          filter:
+            - domain: binary_sensor
+              device_class: motion
+            - domain: binary_sensor
+              device_class: occupancy
 
-  no_motion_wait:
-    name: No-motion Timeout
-    description: Time in seconds to keep the light on after the last motion
-    default: 120
-    selector:
-      number:
-        min: 0
-        max: 3600
-        step: 1
-        unit_of_measurement: seconds
+    light_target:
+      name: Target Light(s)
+      description: Light or group of lights to control
+      selector:
+        target:
+          entity:
+            domain: light
 
-  enable_sunset_condition:
-    name: Enable Sunset Condition
-    description: Only activate after sunset (with optional offset)
-    default: false
-    selector:
-      boolean: {}
+    no_motion_wait:
+      name: No-motion Timeout
+      description: Time in seconds to keep the light on after the last motion
+      default: 120
+      selector:
+        number:
+          min: 0
+          max: 3600
+          step: 1
+          unit_of_measurement: seconds
 
-  sunset_offset:
-    name: Sunset Offset
-    description: >
-      Offset relative to sunset (format HH:MM:SS, negative allowed, e.g. "-00:30:00" or "01:00:00").
-    default: "00:00:00"
-    selector:
-      text:
-        multiline: false
+    enable_sunset_condition:
+      name: Enable Sunset Condition
+      description: Only activate after sunset (with optional offset)
+      default: false
+      selector:
+        boolean: {}
 
-  enable_sunrise_condition:
-    name: Enable Sunrise Condition
-    description: Only activate before sunrise (with optional offset)
-    default: false
-    selector:
-      boolean: {}
+    sunset_offset:
+      name: Sunset Offset
+      description: >
+        Offset relative to sunset (format HH:MM:SS, negative allowed, e.g. "-00:30:00" or "01:00:00").
+      default: "00:00:00"
+      selector:
+        text:
+          multiline: false
 
-  sunrise_offset:
-    name: Sunrise Offset
-    description: >
-      Offset relative to sunrise (format HH:MM:SS, negative allowed, e.g. "-01:00:00" or "00:30:00").
-    default: "00:00:00"
-    selector:
-      text:
-        multiline: false
+    enable_sunrise_condition:
+      name: Enable Sunrise Condition
+      description: Only activate before sunrise (with optional offset)
+      default: false
+      selector:
+        boolean: {}
 
-  # -------- OPTIONAL AMBIENT LIGHT OPTIONS --------
+    sunrise_offset:
+      name: Sunrise Offset
+      description: >
+        Offset relative to sunrise (format HH:MM:SS, negative allowed, e.g. "-01:00:00" or "00:30:00").
+      default: "00:00:00"
+      selector:
+        text:
+          multiline: false
 
-  enable_ambient_light:
-    name: Enable Ambient Light Condition
-    description: >
-      When enabled, the automation will also treat the room as "dark"
-      during daytime (sun above horizon) if the ambient light sensor
-      is below the configured threshold. After sunset this sensor
-      is ignored and motion alone (with sun conditions) is enough.
-    default: false
-    selector:
-      boolean: {}
+    # -------- OPTIONAL AMBIENT LIGHT OPTIONS --------
 
-  ambient_light_sensor:
-    name: Ambient Light Sensor (optional)
-    description: >
-      Illuminance/brightness sensor, e.g. IKEA VALLHORN.
-      Requires "Enable Ambient Light Condition" to be turned on.
-      Leave empty if you only want to use sun conditions.
-    default: ""
-    selector:
-      entity:
-        domain:
-          - sensor
+    enable_ambient_light:
+      name: Enable Ambient Light Condition
+      description: >
+        When enabled, the automation will also treat the room as "dark"
+        during daytime (sun above horizon) if the ambient light sensor
+        is below the configured threshold. After sunset this sensor
+        is ignored and motion alone (with sun conditions) is enough.
+      default: false
+      selector:
+        boolean: {}
 
-  ambient_light_threshold:
-    name: Ambient Light Threshold (lux)
-    description: >
-      If the sensor value is BELOW this threshold and ambient light
-      is enabled while the sun is above the horizon, the automation
-      is allowed to run even when sun conditions are not met.
-      Typical values for IKEA VALLHORN: 30–60 lx for "feels dark".
-    default: 50
-    selector:
-      number:
-        min: 1
-        max: 300
-        step: 1
-        unit_of_measurement: lx
+    ambient_light_sensor:
+      name: Ambient Light Sensor (optional)
+      description: >
+        Illuminance/brightness sensor, e.g. IKEA VALLHORN.
+        Requires "Enable Ambient Light Condition" to be turned on.
+        Leave empty if you only want to use sun conditions.
+      default: ""
+      selector:
+        entity:
+          domain:
+            - sensor
+
+    ambient_light_threshold:
+      name: Ambient Light Threshold (lux)
+      description: >
+        If the sensor value is BELOW this threshold and ambient light
+        is enabled while the sun is above the horizon, the automation
+        is allowed to run even when sun conditions are not met.
+        Typical values for IKEA VALLHORN: 30–60 lx for "feels dark".
+      default: 50
+      selector:
+        number:
+          min: 1
+          max: 300
+          step: 1
+          unit_of_measurement: lx
 
 mode: restart
 max_exceeded: silent
@@ -158,4 +158,72 @@ variables:
        and var_ambient_sensor != ""
        and var_sun_above
        and var_current_lux >= 0
-       and var_current_lux < var_ambient_threshol
+       and var_current_lux < var_ambient_threshold }}
+
+trigger:
+  - trigger: state
+    entity_id: !input motion_entity
+    from: "off"
+    to: "on"
+
+condition:
+  - condition: or
+    conditions:
+      # 0) Fallback: ambient light enabled but sensor not usable -> don't block
+      - condition: template
+        alias: "Ambient enabled but no valid sensor (fallback allow)"
+        value_template: >
+          {{ var_enable_ambient
+             and (var_ambient_sensor == "" or var_current_lux == -1) }}
+
+      # 1) If both sun options are disabled -> always allow
+      - condition: template
+        alias: "No sun conditions enabled"
+        value_template: >
+          {{ not var_enable_sunset and not var_enable_sunrise }}
+
+      # 2) After sunset with offset
+      - condition: and
+        alias: "After sunset with offset"
+        conditions:
+          - condition: template
+            value_template: "{{ var_enable_sunset }}"
+          - condition: sun
+            after: sunset
+            after_offset: !input sunset_offset
+
+      # 3) Before sunrise with offset
+      - condition: and
+        alias: "Before sunrise with offset"
+        conditions:
+          - condition: template
+            value_template: "{{ var_enable_sunrise }}"
+          - condition: sun
+            before: sunrise
+            before_offset: !input sunrise_offset
+
+      # 4) OPTIONAL: Dark in the room according to ambient light sensor (daytime only)
+      - condition: template
+        alias: "Room is dark by ambient light sensor (sun above horizon)"
+        value_template: >
+          {{ var_is_dark_by_ambient }}
+
+action:
+  - alias: "Turn on target light(s)"
+    service: light.turn_on
+    target: !input light_target
+
+  - alias: "Wait for motion to clear"
+    wait_for_trigger:
+      - trigger: state
+        entity_id: !input motion_entity
+        from: "on"
+        to: "off"
+
+  - alias: "Wait configured no-motion timeout"
+    delay:
+      seconds: !input no_motion_wait
+
+  - alias: "Turn off target light(s)"
+    service: light.turn_off
+    target: !input light_target
