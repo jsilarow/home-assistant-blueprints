@@ -1,0 +1,51 @@
+---
+# Global yamllint configuration for Home Assistant blueprints
+
+extends: default
+
+rules:
+  # Enforce 2-space indentation (Home Assistant style)
+  indentation:
+    indent: 2
+    indent-sequences: consistent
+    check-multi-line-strings: false
+
+  # Disallow tabs – spaces only
+  tabs:
+    level: error
+
+  # Reasonable line length – warning only
+  line-length:
+    max: 140
+    level: warning
+
+  # Duplicate keys in mappings are hard errors
+  key-duplicates:
+    level: error
+
+  # Trailing spaces are allowed but warned
+  trailing-spaces:
+    level: warning
+
+  # Require newline at end of file
+  new-line-at-end-of-file:
+    level: warning
+
+  # Enforce consistent list formatting
+  hyphens:
+    level: warning
+
+  # Relax rules around anchors/aliases
+  anchors:
+    level: warning
+
+  # Allow comments almost everywhere, warn on odd cases
+  comments:
+    level: warning
+
+ignore: |
+  # Ignore non-YAML files and CI config
+  .github/
+  *.md
+  *.txt
+  *.log

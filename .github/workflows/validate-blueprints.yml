@@ -17,15 +17,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: 🚀 Run yamllint on blueprints
+        uses: frenck/action-yamllint@v1
         with:
-          python-version: "3.x"
-
-      - name: Install yamllint
-        run: pip install yamllint
-
-      - name: Lint blueprints YAML
-        run: |
-          yamllint -d "{extends: default, rules: {line-length: {max: 140}}}" blueprints/
-
+          config: ".yamllint"
+          strict: true
+          path: "blueprints/"

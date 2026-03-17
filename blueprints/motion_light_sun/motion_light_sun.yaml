@@ -227,3 +227,4 @@ action:
   - alias: "Turn off target light(s)"
     service: light.turn_off
     target: !input light_target
+    
