@@ -6,7 +6,7 @@ extends: default
 rules:
   # Enforce 2-space indentation (Home Assistant style)
   indentation:
-    indent: 2
+    spaces: 2
     indent-sequences: consistent
     check-multi-line-strings: false
 
