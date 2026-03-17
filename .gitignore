@@ -1,0 +1,42 @@
+# OS-specific junk
+.DS_Store
+Thumbs.db
+
+# Editors / IDE
+.idea/
+.vscode/
+*.code-workspace
+
+# Python tools (if you add scripts or tooling later)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node / frontend (jeśli kiedyś coś dołożysz do repo)
+node_modules/
+dist/
+build/
+
+# Home Assistant local files (gdybyś trzymał tu testową konfigurację)
+*.db
+*.db-shm
+*.db-wal
+home-assistant.log
+home-assistant_v2.db
+storage/
+.cloud/
+.cloud/*
+
+# Backup / temp / dumps
+*.bak
+*.backup
+*.tmp
+*.log
+*.swp
+*.swo
+
+# OS archives / exports
+*.zip
+*.tar
+*.tar.gz

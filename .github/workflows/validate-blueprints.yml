@@ -1,15 +1,25 @@
 # .github/workflows/validate-blueprints.yml
-name: Validate Blueprints
-on: 
+name: Validate Home Assistant blueprints
+
+on:
   push:
-    paths: ['blueprints/**']
+    branches: [ main, dev ]
   pull_request:
-    paths: ['blueprints/**']
+    branches: [ main, dev ]
+
 jobs:
-  validate:
+  lint-blueprints:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     steps:
-    - uses: actions/checkout@v4      
-    - uses: home-assistant/blueprint-validate-action@v1  
-      with:
-        path: blueprints/
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🚀 Run yamllint on blueprints
+        uses: frenck/action-yamllint@v1
+        with:
+          config: ".yamllint"
+          strict: true
+          path: "blueprints/"

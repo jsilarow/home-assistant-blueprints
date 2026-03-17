@@ -1,3 +1,4 @@
+---
 blueprint:
   name: Motion-activated Light with Sun and Ambient Light
   description: |
@@ -17,7 +18,15 @@ blueprint:
         to run even if sun conditions are not met (treat room as dark)
       * After sunset (sun below horizon) ambient light sensor is IGNORED
         and motion + sun conditions are enough to activate the light.
+
+    Ambient light – IKEA VALLHORN typical values:
+    - Dark room: 0–20 lx
+    - Dim / overcast: 20–80 lx
+    - Lights on in the room: 80–160 lx
+    Recommended threshold: 30–60 lx for "turn on when it feels dark".
   domain: automation
+  source_url: https://github.com/jsilarow/home-assistant-blueprints/blob/main/blueprints/motion_light_sun/motion_light_sun.yaml
+  author: Jakub Silarow
 
   input:
     motion_entity:
@@ -98,8 +107,9 @@ blueprint:
     ambient_light_sensor:
       name: Ambient Light Sensor (optional)
       description: >
-        Illuminance/brightness sensor, e.g. IKEA VALLHORN. Leave empty if you
-        only want to use sun conditions.
+        Illuminance/brightness sensor, e.g. IKEA VALLHORN.
+        Requires "Enable Ambient Light Condition" to be turned on.
+        Leave empty if you only want to use sun conditions.
       default: ""
       selector:
         entity:
@@ -112,15 +122,16 @@ blueprint:
         If the sensor value is BELOW this threshold and ambient light
         is enabled while the sun is above the horizon, the automation
         is allowed to run even when sun conditions are not met.
-      default: 20
+        Typical values for IKEA VALLHORN: 30–60 lx for "feels dark".
+      default: 50
       selector:
         number:
           min: 1
-          max: 1000
+          max: 300
           step: 1
           unit_of_measurement: lx
 
-mode: restart
+mode: queued
 max_exceeded: silent
 
 variables:
@@ -131,12 +142,11 @@ variables:
   var_ambient_threshold: !input ambient_light_threshold
 
   var_sun_above: "{{ is_state('sun.sun', 'above_horizon') }}"
-  var_sun_below: "{{ is_state('sun.sun', 'below_horizon') }}"
 
   var_current_lux: >
     {% if var_enable_ambient
-          and var_ambient_sensor != ""
-          and states(var_ambient_sensor) not in ["unknown","unavailable",""] %}
+       and var_ambient_sensor != ""
+       and states(var_ambient_sensor) not in ["unknown","unavailable",""] %}
       {{ states(var_ambient_sensor) | float(0) }}
     {% else %}
       -1
@@ -159,6 +169,13 @@ trigger:
 condition:
   - condition: or
     conditions:
+      # 0) Fallback: ambient light enabled but sensor not usable -> don't block
+      - condition: template
+        alias: "Ambient enabled but no valid sensor (fallback allow)"
+        value_template: >
+          {{ var_enable_ambient
+             and (var_ambient_sensor == "" or var_current_lux == -1) }}
+
       # 1) If both sun options are disabled -> always allow
       - condition: template
         alias: "No sun conditions enabled"
