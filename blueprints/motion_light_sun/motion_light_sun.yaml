@@ -17,108 +17,118 @@ blueprint:
         to run even if sun conditions are not met (treat room as dark)
       * After sunset (sun below horizon) ambient light sensor is IGNORED
         and motion + sun conditions are enough to activate the light.
+
+    Ambient light – IKEA VALLHORN typical values:
+    - Dark room: 0–20 lx
+    - Dim / overcast: 20–80 lx
+    - Lights on in the room: 80–160 lx
+    Recommended threshold: 30–60 lx for "turn on when it feels dark".
   domain: automation
+  source_url: https://github.com/jsilarow/home-assistant-blueprints/blob/main/blueprints/motion_light_sun/motion_light_sun.yaml
+  author: Jan Silarow
 
-  input:
-    motion_entity:
-      name: Motion Sensor
-      description: Motion or occupancy sensor used to detect presence
-      selector:
+input:
+  motion_entity:
+    name: Motion Sensor
+    description: Motion or occupancy sensor used to detect presence
+    selector:
+      entity:
+        filter:
+          - domain: binary_sensor
+            device_class: motion
+          - domain: binary_sensor
+            device_class: occupancy
+
+  light_target:
+    name: Target Light(s)
+    description: Light or group of lights to control
+    selector:
+      target:
         entity:
-          filter:
-            - domain: binary_sensor
-              device_class: motion
-            - domain: binary_sensor
-              device_class: occupancy
+          domain: light
 
-    light_target:
-      name: Target Light(s)
-      description: Light or group of lights to control
-      selector:
-        target:
-          entity:
-            domain: light
+  no_motion_wait:
+    name: No-motion Timeout
+    description: Time in seconds to keep the light on after the last motion
+    default: 120
+    selector:
+      number:
+        min: 0
+        max: 3600
+        step: 1
+        unit_of_measurement: seconds
 
-    no_motion_wait:
-      name: No-motion Timeout
-      description: Time in seconds to keep the light on after the last motion
-      default: 120
-      selector:
-        number:
-          min: 0
-          max: 3600
-          step: 1
-          unit_of_measurement: seconds
+  enable_sunset_condition:
+    name: Enable Sunset Condition
+    description: Only activate after sunset (with optional offset)
+    default: false
+    selector:
+      boolean: {}
 
-    enable_sunset_condition:
-      name: Enable Sunset Condition
-      description: Only activate after sunset (with optional offset)
-      default: false
-      selector:
-        boolean: {}
+  sunset_offset:
+    name: Sunset Offset
+    description: >
+      Offset relative to sunset (format HH:MM:SS, negative allowed, e.g. "-00:30:00" or "01:00:00").
+    default: "00:00:00"
+    selector:
+      text:
+        multiline: false
 
-    sunset_offset:
-      name: Sunset Offset
-      description: >
-        Offset relative to sunset (format HH:MM:SS, negative allowed, e.g. "-00:30:00" or "01:00:00").
-      default: "00:00:00"
-      selector:
-        text:
-          multiline: false
+  enable_sunrise_condition:
+    name: Enable Sunrise Condition
+    description: Only activate before sunrise (with optional offset)
+    default: false
+    selector:
+      boolean: {}
 
-    enable_sunrise_condition:
-      name: Enable Sunrise Condition
-      description: Only activate before sunrise (with optional offset)
-      default: false
-      selector:
-        boolean: {}
+  sunrise_offset:
+    name: Sunrise Offset
+    description: >
+      Offset relative to sunrise (format HH:MM:SS, negative allowed, e.g. "-01:00:00" or "00:30:00").
+    default: "00:00:00"
+    selector:
+      text:
+        multiline: false
 
-    sunrise_offset:
-      name: Sunrise Offset
-      description: >
-        Offset relative to sunrise (format HH:MM:SS, negative allowed, e.g. "-01:00:00" or "00:30:00").
-      default: "00:00:00"
-      selector:
-        text:
-          multiline: false
+  # -------- OPTIONAL AMBIENT LIGHT OPTIONS --------
 
-    # -------- OPTIONAL AMBIENT LIGHT OPTIONS --------
+  enable_ambient_light:
+    name: Enable Ambient Light Condition
+    description: >
+      When enabled, the automation will also treat the room as "dark"
+      during daytime (sun above horizon) if the ambient light sensor
+      is below the configured threshold. After sunset this sensor
+      is ignored and motion alone (with sun conditions) is enough.
+    default: false
+    selector:
+      boolean: {}
 
-    enable_ambient_light:
-      name: Enable Ambient Light Condition
-      description: >
-        When enabled, the automation will also treat the room as "dark"
-        during daytime (sun above horizon) if the ambient light sensor
-        is below the configured threshold. After sunset this sensor
-        is ignored and motion alone (with sun conditions) is enough.
-      default: false
-      selector:
-        boolean: {}
+  ambient_light_sensor:
+    name: Ambient Light Sensor (optional)
+    description: >
+      Illuminance/brightness sensor, e.g. IKEA VALLHORN.
+      Requires "Enable Ambient Light Condition" to be turned on.
+      Leave empty if you only want to use sun conditions.
+    default: ""
+    selector:
+      entity:
+        domain:
+          - sensor
 
-    ambient_light_sensor:
-      name: Ambient Light Sensor (optional)
-      description: >
-        Illuminance/brightness sensor, e.g. IKEA VALLHORN. Leave empty if you
-        only want to use sun conditions.
-      default: ""
-      selector:
-        entity:
-          domain:
-            - sensor
-
-    ambient_light_threshold:
-      name: Ambient Light Threshold (lux)
-      description: >
-        If the sensor value is BELOW this threshold and ambient light
-        is enabled while the sun is above the horizon, the automation
-        is allowed to run even when sun conditions are not met.
-      default: 20
-      selector:
-        number:
-          min: 1
-          max: 1000
-          step: 1
-          unit_of_measurement: lx
+  ambient_light_threshold:
+    name: Ambient Light Threshold (lux)
+    description: >
+      If the sensor value is BELOW this threshold and ambient light
+      is enabled while the sun is above the horizon, the automation
+      is allowed to run even when sun conditions are not met.
+      Typical values for IKEA VALLHORN: 30–60 lx for "feels dark".
+    default: 50
+    selector:
+      number:
+        min: 1
+        max: 300
+        step: 1
+        unit_of_measurement: lx
 
 mode: restart
 max_exceeded: silent
@@ -131,12 +141,11 @@ variables:
   var_ambient_threshold: !input ambient_light_threshold
 
   var_sun_above: "{{ is_state('sun.sun', 'above_horizon') }}"
-  var_sun_below: "{{ is_state('sun.sun', 'below_horizon') }}"
 
   var_current_lux: >
     {% if var_enable_ambient
-          and var_ambient_sensor != ""
-          and states(var_ambient_sensor) not in ["unknown","unavailable",""] %}
+       and var_ambient_sensor != ""
+       and states(var_ambient_sensor) not in ["unknown","unavailable",""] %}
       {{ states(var_ambient_sensor) | float(0) }}
     {% else %}
       -1
@@ -159,6 +168,13 @@ trigger:
 condition:
   - condition: or
     conditions:
+      # 0) Fallback: ambient light enabled but sensor not usable -> don't block
+      - condition: template
+        alias: "Ambient enabled but no valid sensor (fallback allow)"
+        value_template: >
+          {{ var_enable_ambient
+             and (var_ambient_sensor == "" or var_current_lux == -1) }}
+
       # 1) If both sun options are disabled -> always allow
       - condition: template
         alias: "No sun conditions enabled"

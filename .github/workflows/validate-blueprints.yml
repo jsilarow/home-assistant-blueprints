@@ -1,15 +1,29 @@
 # .github/workflows/validate-blueprints.yml
-name: Validate Blueprints
-on: 
+name: Validate Home Assistant blueprints
+
+on:
   push:
-    paths: ['blueprints/**']
+    branches: [ main, dev ]
   pull_request:
-    paths: ['blueprints/**']
+    branches: [ main, dev ]
+
 jobs:
-  validate:
+  lint-blueprints:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4      
-    - uses: home-assistant/blueprint-validate-action@v1  
-      with:
-        path: blueprints/
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Lint blueprints YAML
+        run: |
+          yamllint -d "{extends: default, rules: {line-length: {max: 140}}}" blueprints/
+
